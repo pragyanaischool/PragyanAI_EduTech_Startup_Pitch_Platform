@@ -1,0 +1,42 @@
+[theme]
+# Primary accent color for buttons, active tabs, and sliders
+primaryColor = "#2563EB"
+
+# Main canvas background (Midnight Blue / Slate)
+backgroundColor = "#0F172A"
+
+# Secondary surface background for sidebar, card containers, and expanders
+secondaryBackgroundColor = "#1E293B"
+
+# Primary typography color
+textColor = "#F8FAFC"
+
+# Base font family
+font = "sans serif"
+
+[server]
+# Port Streamlit listens on
+port = 8501
+
+# Allow large pitch decks (high-res vector PDFs up to 100 MB)
+maxUploadSize = 100
+
+# Security: Enable Cross-Site Request Forgery (XSRF) protection
+enableXsrfProtection = true
+
+# Security: Prevent unauthorized websocket origins
+enableCORS = false
+
+# Headless server environment (required for Docker, Linux VMs, Streamlit Cloud)
+headless = true
+
+[browser]
+# Automatically open browser on local start
+gatherUsageStats = false
+
+[client]
+# Display cleaner error reporting for production users
+showErrorDetails = false
+
+# Toolbar mode options: "auto", "developer", "viewer", "minimal"
+toolbarMode = "minimal"

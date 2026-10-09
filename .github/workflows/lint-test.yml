@@ -1,0 +1,93 @@
+name: CI Lint & Smoke Test
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - 'feature/**'
+  pull_request:
+    branches:
+      - main
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-validate:
+    name: Code Quality & Smoke Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      # Step 1: Check out the repository
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Python runtime
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      # Step 3: Upgrade pip and install pinned dependencies
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install flake8 pytest
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      # Step 4: Verify storage directory tree and .gitkeep files
+      - name: Verify Storage Directory Structure
+        run: |
+          echo "Checking required storage paths..."
+          test -d data || { echo "Missing data/ directory"; exit 1; }
+          test -d data/uploads/decks || { echo "Missing data/uploads/decks/ directory"; exit 1; }
+          test -d data/uploads/financials || { echo "Missing data/uploads/financials/ directory"; exit 1; }
+          test -d data/uploads/media || { echo "Missing data/uploads/media/ directory"; exit 1; }
+          echo "Storage folder hierarchy verified."
+
+      # Step 5: Lint Python source code with Flake8
+      - name: Lint with Flake8
+        run: |
+          # Stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Exit-zero treats all other warnings as non-blocking
+          flake8 . --count --exit-zero --max-complexity=15 --max-line-length=127 --statistics
+
+      # Step 6: Bytecode Compilation Check
+      - name: Python Bytecode Compilation Check
+        run: |
+          python -m compileall -q app.py utils/ views/
+
+      # Step 7: Headless Smoke Test (Imports, DB initialization, and State bootstrap)
+      - name: Run Smoke Initialization Test
+        env:
+          GROQ_API_KEY: "test_mock_key"
+          ADMIN_PASSWORD: "test_mock_password"
+        run: |
+          python -c "
+          import sys
+          try:
+              from utils.db import init_db
+              from utils.file_manager import init_storage_directories
+              from utils.state import init_session_state
+              from utils.secrets_helper import get_secret
+              from views.investor_view import render_investor_view
+              from views.admin_view import render_admin_view
+
+              # Test bootstrap calls
+              init_storage_directories()
+              init_db()
+
+              print('Database and storage initialized successfully in CI.')
+              print('Secret reader test (ADMIN_PASSWORD):', bool(get_secret('ADMIN_PASSWORD')))
+          except Exception as e:
+              print(f'CI Smoke Test Failure: {e}', file=sys.stderr)
+              sys.exit(1)
+          "
